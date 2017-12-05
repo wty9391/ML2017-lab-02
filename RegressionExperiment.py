@@ -10,6 +10,7 @@ import numpy as np
 import scipy  
 import matplotlib.pyplot as plt
 import math
+import sys
 
 from sklearn.datasets import load_svmlight_file
 from sklearn.model_selection import train_test_split
@@ -38,6 +39,40 @@ def g(w,X,Y,lamda = 0.0):
     # L2 norm
     return 1.0/num_records * X.transpose().dot(2*h(w,X)-(Y+1)) \
             + lamda * w
+            
+def gradient_decent(w,X,Y,lamda,eta):
+    return w - eta * g(w,X,Y,lamda)
+
+def NAG(w,X,Y,last_delta,lamda,eta,gamma):
+    delta = gamma * last_delta + eta * g(w-gamma * last_delta,X,Y,lamda)
+    return w-delta,delta
+
+def Adadelta(w,X,Y,last_E_g_2,last_E_delta_2,lamda):
+    gradient = g(w,X,Y,lamda)
+    E_g_2 = gamma * last_E_g_2 + (1-gamma) * (gradient*gradient)
+    RMS_g = np.sqrt(E_g_2+epsilon)
+    RMS_last_delta = np.sqrt(last_E_delta_2+epsilon)
+    delta = RMS_last_delta / RMS_g * gradient
+    return w - delta,\
+            E_g_2,\
+            gamma * last_E_delta_2 + (1-gamma) * (delta*delta)
+
+def RMSprop(w,X,Y,last_E_g_2,lamda,eta):
+    gradient = g(w,X,Y,lamda)
+    E_g_2 = gamma * last_E_g_2 + (1-gamma) * (gradient*gradient)
+    return w - (eta/np.sqrt(E_g_2+epsilon))*gradient,\
+            E_g_2
+            
+def Adam(w,X,Y,last_m,last_v,lamda,eta,beta1,beta2,counteract_bias=False):
+    gradient = g(w,X,Y,lamda)
+    m = beta1 * last_m + (1-beta1) * gradient
+    v = beta2 * last_v + (1-beta2) * (gradient*gradient)
+    if counteract_bias:
+        m = m/(1-beta1)
+        v = v/(1-beta2)
+        
+    return w - (eta/(np.sqrt(v)+epsilon))*m,\
+            m,v
 
 X_train, Y_train = load_svmlight_file("./resources/a9a")
 X_test, Y_test = load_svmlight_file("./resources/a9a.t")
@@ -58,34 +93,96 @@ Y_test = Y_test.reshape((len(Y_test),1))
 
 train_size,num_features  = np.shape(X_train)
 
-# initialize w
-w = np.random.normal(size=(num_features,1))
 
 lamda = 0.1
-eta = 0.1
+eta = 0.05
+gamma = 0.9
 threshold=0.5
-max_iterate = 50
-batch_size = 5000
+max_iterate = 100
+batch_size = 10000
+epsilon=1e-8#sys.float_info.epsilon
+Adadelta_last_E_delta_2_init = 1e-4
+Adam_beta1 = 0.9
+Adam_beta2 = 0.99
 
-loss_train = []
-loss_test = []
-accuracy_train = []
-accuracy_test = []
+GD_loss_test = []
+w = np.random.normal(size=(num_features,1))
 
-for epoch in range(max_iterate):
-    loss_train.append(L(w,X_train,Y_train,lamda))
-    loss_test.append(L(w,X_test,Y_test,lamda))
+NAG_loss_test = []
+NAG_w = w
+NAG_last_delta = np.zeros((num_features,1))
+
+Adadelta_loss_test = []
+Adadelta_w = w
+Adadelta_last_E_g_2 = np.zeros((num_features,1))
+Adadelta_last_E_delta_2 = np.zeros((num_features,1)) + Adadelta_last_E_delta_2_init
+
+RMSprop_loss_test = []
+RMSprop_w = w
+RMSprop_last_E_g_2 = np.zeros((num_features,1))
+
+Adam_loss_test = []
+Adam_w = w
+Adam_last_m = np.zeros((num_features,1))
+Adam_last_v = np.zeros((num_features,1))
+
+epoch = 0
+for counter in range(max_iterate):
     starts = [i*batch_size for i in range(math.ceil(train_size/batch_size))]
     ends = [i*batch_size for i in range(1,math.ceil(train_size/batch_size))]
     ends.append(train_size)
     for start, end in zip(starts, ends):
-        w = w - eta * g(w,X_train[start:end,:],Y_train[start:end,:],lamda)
+        # mini-batch gradient decent
+        GD_loss_test.append(L(w,X_test,Y_test,lamda))
+        w = gradient_decent(w,X_train[start:end,:],Y_train[start:end,:],lamda,eta)
+        
+        # Nesterov accelerated gradient decent
+        NAG_loss_test.append(L(NAG_w,X_test,Y_test,lamda))
+        NAG_w,NAG_last_delta = NAG(NAG_w,
+                                   X_train[start:end,:],
+                                   Y_train[start:end,:],
+                                   NAG_last_delta,lamda,eta,gamma)
+        
+        # Adadelta gradient decent
+        Adadelta_loss_test.append(L(Adadelta_w,X_test,Y_test,lamda))        
+        Adadelta_w, Adadelta_last_E_g_2, Adadelta_last_E_delta_2 =\
+            Adadelta(Adadelta_w,
+                     X_train[start:end,:],
+                     Y_train[start:end,:],
+                     Adadelta_last_E_g_2,
+                     Adadelta_last_E_delta_2,
+                     lamda)
+        
+        # RMSprop gradient decent
+        RMSprop_loss_test.append(L(RMSprop_w,X_test,Y_test,lamda))
+        RMSprop_w, RMSprop_last_E_g_2 =\
+            RMSprop(RMSprop_w,
+                    X_train[start:end,:],
+                    Y_train[start:end,:],
+                    RMSprop_last_E_g_2,
+                    lamda,eta)
+        
+        # Adaptive Moment Estimation
+        Adam_loss_test.append(L(Adam_w,X_test,Y_test,lamda))
+        Adam_w, Adam_last_m, Adam_last_v =\
+            Adam(Adam_w,
+                 X_train[start:end,:],
+                 Y_train[start:end,:],
+                 Adam_last_m,
+                 Adam_last_v,
+                 lamda,eta,Adam_beta1,Adam_beta2,
+                 True if epoch<2 else False)
+        
+        epoch += 1 
     
 fig, ax = plt.subplots()
-train_loss_line = ax.plot(range(max_iterate),loss_train,label='train loss')
-test_loss_line = ax.plot(range(max_iterate),loss_test,label='test loss')
+test_loss_line = ax.plot(range(epoch),GD_loss_test,label=r'GD loss, $\eta$='+str(eta))
+NAG_test_loss_line = ax.plot(range(epoch),NAG_loss_test,label=r'NAG loss, $\eta$='+str(eta)+r', $\gamma$='+str(gamma))
+Adadelta_test_loss_line = ax.plot(range(epoch),Adadelta_loss_test,label=r'Adadelta, with init $\Delta^2$='+str(Adadelta_last_E_delta_2_init))
+RMSprop_test_loss_line = ax.plot(range(epoch),RMSprop_loss_test,label=r'RMSprop loss, $\eta$='+str(eta)+r', $\gamma$='+str(gamma))
+Adam_test_loss_line = ax.plot(range(epoch),Adam_loss_test,label=r'Adam loss, $\eta$='+str(eta)+r', $\beta_1$='+str(Adam_beta1)+r', $\beta_2$='+str(Adam_beta2))
 plt.legend()
-ax.set(xlabel='Epoch', ylabel='Loss with l2 norm')
+ax.set(xlabel='Epoch', ylabel='Loss in testset with l2 norm')
 plt.show()
     
 
