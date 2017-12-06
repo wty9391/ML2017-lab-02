@@ -63,16 +63,16 @@ def RMSprop(w,X,Y,last_E_g_2,lamda,eta):
     return w - (eta/np.sqrt(E_g_2+epsilon))*gradient,\
             E_g_2
             
-def Adam(w,X,Y,last_m,last_v,lamda,eta,beta1,beta2,counteract_bias=False):
+def Adam(w,X,Y,last_m,last_v,lamda,eta,beta1,beta2,epoch,counteract_bias=True):
     gradient = g(w,X,Y,lamda)
     m = beta1 * last_m + (1-beta1) * gradient
     v = beta2 * last_v + (1-beta2) * (gradient*gradient)
     if counteract_bias:
-        m = m/(1-beta1)
-        v = v/(1-beta2)
+        m = m/(1-beta1**epoch)
+        v = v/(1-beta2**epoch)
         
     return w - (eta/(np.sqrt(v)+epsilon))*m,\
-            m,v
+            m*(1-beta1**epoch),v*(1-beta2**epoch)
 
 X_train, Y_train = load_svmlight_file("./resources/a9a")
 X_test, Y_test = load_svmlight_file("./resources/a9a.t")
@@ -170,8 +170,7 @@ for counter in range(max_iterate):
                  Y_train[start:end,:],
                  Adam_last_m,
                  Adam_last_v,
-                 lamda,eta,Adam_beta1,Adam_beta2,
-                 True if epoch<2 else False)
+                 lamda,eta,Adam_beta1,Adam_beta2,epoch+1)
         
         epoch += 1 
     
