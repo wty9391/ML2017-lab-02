@@ -9,70 +9,14 @@ Created on Sat Dec  2 19:17:35 2017
 import numpy as np 
 import scipy  
 import matplotlib.pyplot as plt
-import math
-import sys
+import pandas as pd
 
 from sklearn.datasets import load_svmlight_file
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV
 
+import LogiticRegressionClassifier as LRC
 
-def sigmoid(inX):  
-    return 1.0 / (1 + np.exp(-inX))
-
-def h(w,X):
-    return sigmoid(X.dot(w))
-
-def L(w,X,Y,lamda=0.0):
-    num_records,num_features  = np.shape(X)  
-    
-    hx = h(w,X)
-    regulation_loss = 1.0/2 * lamda * w.transpose().dot(w)
-    loss = 1.0/2 * 1.0/(1 - -1) * 1.0/num_records * (-np.log(hx).transpose().dot(1+Y) - np.log(1-hx).transpose().dot(1-Y))\
-            + regulation_loss
-            
-    #loss = 
-    return loss[0][0]
-
-def g(w,X,Y,lamda = 0.0):
-    num_records,num_features  = np.shape(X)  
-    
-    # L2 norm
-    return 1.0/num_records * X.transpose().dot(2*h(w,X)-(Y+1)) \
-            + lamda * w
-            
-def gradient_decent(w,X,Y,lamda,eta):
-    return w - eta * g(w,X,Y,lamda)
-
-def NAG(w,X,Y,last_delta,lamda,eta,gamma):
-    delta = gamma * last_delta + eta * g(w-gamma * last_delta,X,Y,lamda)
-    return w-delta,delta
-
-def Adadelta(w,X,Y,last_E_g_2,last_E_delta_2,lamda):
-    gradient = g(w,X,Y,lamda)
-    E_g_2 = gamma * last_E_g_2 + (1-gamma) * (gradient*gradient)
-    RMS_g = np.sqrt(E_g_2+epsilon)
-    RMS_last_delta = np.sqrt(last_E_delta_2+epsilon)
-    delta = RMS_last_delta / RMS_g * gradient
-    return w - delta,\
-            E_g_2,\
-            gamma * last_E_delta_2 + (1-gamma) * (delta*delta)
-
-def RMSprop(w,X,Y,last_E_g_2,lamda,eta):
-    gradient = g(w,X,Y,lamda)
-    E_g_2 = gamma * last_E_g_2 + (1-gamma) * (gradient*gradient)
-    return w - (eta/np.sqrt(E_g_2+epsilon))*gradient,\
-            E_g_2
-            
-def Adam(w,X,Y,last_m,last_v,lamda,eta,beta1,beta2,epoch,counteract_bias=True):
-    gradient = g(w,X,Y,lamda)
-    m = beta1 * last_m + (1-beta1) * gradient
-    v = beta2 * last_v + (1-beta2) * (gradient*gradient)
-    if counteract_bias:
-        m = m/(1-beta1**epoch)
-        v = v/(1-beta2**epoch)
-        
-    return w - (eta/(np.sqrt(v)+epsilon))*m,\
-            m*(1-beta1**epoch),v*(1-beta2**epoch)
+result_path = './results/regression/grid_search'
 
 X_train, Y_train = load_svmlight_file("./resources/a9a")
 X_test, Y_test = load_svmlight_file("./resources/a9a.t")
@@ -93,102 +37,179 @@ Y_test = Y_test.reshape((len(Y_test),1))
 
 train_size,num_features  = np.shape(X_train)
 
+max_iterate = 50
+batch_size = 8000
 
-lamda = 0.1
-eta = 0.05
-gamma = 0.9
-threshold=0.5
-max_iterate = 100
-batch_size = 10000
-epsilon=1e-8#sys.float_info.epsilon
-Adadelta_last_E_delta_2_init = 1e-4
-Adam_beta1 = 0.9
-Adam_beta2 = 0.99
+figure_num = 2
 
-GD_loss_test = []
-w = np.random.normal(size=(num_features,1))
+init_w = np.random.normal(size=(num_features,1))
 
-NAG_loss_test = []
-NAG_w = w
-NAG_last_delta = np.zeros((num_features,1))
+optimizers = ['NAG','Adadelta','RMSprop','Adam','GD']
+o = {}
 
-Adadelta_loss_test = []
-Adadelta_w = w
-Adadelta_last_E_g_2 = np.zeros((num_features,1))
-Adadelta_last_E_delta_2 = np.zeros((num_features,1)) + Adadelta_last_E_delta_2_init
+param_grid = {
+            'NAG': {'lamda': [0.01, 0.1], 
+                       'eta': [0.01, 0.05],
+                       'gamma': [0.8, 0.9, 0.95],
+                       'threshold': [0.5,0.6]
+                       },
+                    
+            'Adadelta' : {'lamda': [0.01, 0.1],
+                          'gamma': [0.8, 0.9, 0.95],
+                       'threshold': [0.5,0.6]
+                          },
+            
+            'RMSprop' : {'lamda': [0.01, 0.1], 
+                       'eta': [0.01, 0.05],
+                       'gamma': [0.8, 0.9, 0.95],
+                       'threshold': [0.5,0.6]
+                       },
+            
+            'Adam' : {'lamda': [0.01, 0.1], 
+                       'eta': [0.01, 0.05],
+                       'Adam_beta1': [0.9, 0.95],
+                       'Adam_beta2' : [0.99, 0.999],
+                       'threshold': [0.5,0.6]
+                       },
+            
+            'GD' : {'lamda': [0.01, 0.1, 0.5], 
+                       'eta': [0.1, 0.2, 0.3, 0.4, 0.5],
+                       'threshold': [0.4,0.5,0.6]
+                       }
+        }
 
-RMSprop_loss_test = []
-RMSprop_w = w
-RMSprop_last_E_g_2 = np.zeros((num_features,1))
-
-Adam_loss_test = []
-Adam_w = w
-Adam_last_m = np.zeros((num_features,1))
-Adam_last_v = np.zeros((num_features,1))
-
-epoch = 0
-for counter in range(max_iterate):
-    starts = [i*batch_size for i in range(math.ceil(train_size/batch_size))]
-    ends = [i*batch_size for i in range(1,math.ceil(train_size/batch_size))]
-    ends.append(train_size)
-    for start, end in zip(starts, ends):
-        # mini-batch gradient decent
-        GD_loss_test.append(L(w,X_test,Y_test,lamda))
-        w = gradient_decent(w,X_train[start:end,:],Y_train[start:end,:],lamda,eta)
-        
-        # Nesterov accelerated gradient decent
-        NAG_loss_test.append(L(NAG_w,X_test,Y_test,lamda))
-        NAG_w,NAG_last_delta = NAG(NAG_w,
-                                   X_train[start:end,:],
-                                   Y_train[start:end,:],
-                                   NAG_last_delta,lamda,eta,gamma)
-        
-        # Adadelta gradient decent
-        Adadelta_loss_test.append(L(Adadelta_w,X_test,Y_test,lamda))        
-        Adadelta_w, Adadelta_last_E_g_2, Adadelta_last_E_delta_2 =\
-            Adadelta(Adadelta_w,
-                     X_train[start:end,:],
-                     Y_train[start:end,:],
-                     Adadelta_last_E_g_2,
-                     Adadelta_last_E_delta_2,
-                     lamda)
-        
-        # RMSprop gradient decent
-        RMSprop_loss_test.append(L(RMSprop_w,X_test,Y_test,lamda))
-        RMSprop_w, RMSprop_last_E_g_2 =\
-            RMSprop(RMSprop_w,
-                    X_train[start:end,:],
-                    Y_train[start:end,:],
-                    RMSprop_last_E_g_2,
-                    lamda,eta)
-        
-        # Adaptive Moment Estimation
-        Adam_loss_test.append(L(Adam_w,X_test,Y_test,lamda))
-        Adam_w, Adam_last_m, Adam_last_v =\
-            Adam(Adam_w,
-                 X_train[start:end,:],
-                 Y_train[start:end,:],
-                 Adam_last_m,
-                 Adam_last_v,
-                 lamda,eta,Adam_beta1,Adam_beta2,epoch+1)
-        
-        epoch += 1 
+print ("===========================")
+print ("Start to execute exhaustive grid search")
+for i in range(len(optimizers)):
+    optimizer_name = optimizers[i]
     
-fig, ax = plt.subplots()
-test_loss_line = ax.plot(range(epoch),GD_loss_test,label=r'GD loss, $\eta$='+str(eta))
-NAG_test_loss_line = ax.plot(range(epoch),NAG_loss_test,label=r'NAG loss, $\eta$='+str(eta)+r', $\gamma$='+str(gamma))
-Adadelta_test_loss_line = ax.plot(range(epoch),Adadelta_loss_test,label=r'Adadelta, with init $\Delta^2$='+str(Adadelta_last_E_delta_2_init))
-RMSprop_test_loss_line = ax.plot(range(epoch),RMSprop_loss_test,label=r'RMSprop loss, $\eta$='+str(eta)+r', $\gamma$='+str(gamma))
-Adam_test_loss_line = ax.plot(range(epoch),Adam_loss_test,label=r'Adam loss, $\eta$='+str(eta)+r', $\beta_1$='+str(Adam_beta1)+r', $\beta_2$='+str(Adam_beta2))
+    cls = GridSearchCV(LRC.Classifier(init_w,max_iterate=max_iterate,batch_size=batch_size,optimizer=optimizer_name), param_grid[optimizer_name],return_train_score=True,n_jobs=4)
+    cls.fit(X_train,Y_train)
+    result = pd.DataFrame(cls.cv_results_)
+    result.sort_values('rank_test_score',inplace=True)
+    result = result.reset_index(drop = True)
+    
+    # Best optimizer
+    o[optimizer_name] = cls.best_estimator_
+    
+    print ("Exhaustive Grid Search Result of %s"%optimizer_name)
+    print ("The best estimator's parameter is",cls.best_params_)
+    print (result.loc[0:5,['rank_test_score','mean_test_score','mean_train_score','mean_fit_time','params']])
+    path = result_path+'_'+optimizer_name+'.csv'
+    result.to_csv(path)
+    print ("Result has been saved in",path)
+    
+    
+    print ("Printing the best %d models loss curves"%figure_num)
+    for j in range(figure_num):
+        params = result.loc[i,'params']
+        print ("Figure of",params)
+        cls = LRC.Classifier(init_w,max_iterate=max_iterate,batch_size=batch_size,optimizer=optimizer_name,**params)
+        cls.fit(X_train,Y_train)
+        loss_train = cls.getLossHistory(X_train,Y_train)
+        loss_test = cls.getLossHistory(X_test,Y_test)
+        accuracy_train = cls.getScoreHistory(X_train,Y_train)
+        accuracy_test = cls.getScoreHistory(X_test,Y_test)
+        
+        plt.figure(j)
+        _, ax = plt.subplots()
+        ax_e = ax.twinx()
+        ax.plot(range(len(loss_train)),loss_train,label='train loss')
+        ax.plot(range(len(loss_test)),loss_test,label='test loss')
+        ax_e.plot(range(len(accuracy_train)),accuracy_train,'r',label='train accuracy')
+        ax_e.plot(range(len(accuracy_test)),accuracy_test,'g',label='test accuracy')
+            
+        ax.set(xlabel='Epoch', ylabel='Loss with l2 norm')
+        ax_e.set_ylabel('Accuracy with threshold=%s'%str(cls.get_params()['threshold']))
+        
+        ax.legend(loc=4)
+        ax_e.legend(loc=1)
+        plt.show()    
+        
+    plt.close('all')
+    
+    
+print ("===========================")
+print ("Start to figure the accuracy and loss curves of\
+       estimators of different optimized algorithms with tuned hyperparameter")
+for i in range(len(optimizers)):
+    cls_name = optimizers[i]
+    cls = o[cls_name]
+    
+    print("Optimizer %s, parameters:"%cls_name)
+    params = cls.get_params()
+    params.pop('w')
+    print(params)
+    
+    loss_train = cls.getLossHistory(X_train,Y_train)
+    loss_test = cls.getLossHistory(X_test,Y_test)
+    accuracy_train = cls.getScoreHistory(X_train,Y_train)
+    accuracy_test = cls.getScoreHistory(X_test,Y_test)
+    
+    plt.figure(i)
+    _, ax = plt.subplots()
+    ax_e = ax.twinx()
+    ax.plot(range(len(loss_train)),loss_train,label='train loss')
+    ax.plot(range(len(loss_test)),loss_test,label='test loss')
+    ax_e.plot(range(len(accuracy_train)),accuracy_train,'r',label='train accuracy')
+    ax_e.plot(range(len(accuracy_test)),accuracy_test,'g',label='test accuracy')
+    
+    ax.set(xlabel='Epoch', ylabel='Loss with l2 norm')
+    ax_e.set_ylabel('Accuracy with threshold=%s'%str(cls.get_params()['threshold']))
+    
+    ax.legend(loc=4)
+    ax_e.legend(loc=1)
+    plt.title(cls_name+' Gradient Decent')
+    plt.show()
+    plt.close('all')
+
+print ("===========================")
+print ("Start to figure the loss curves of\
+       tuned estimators in one figure")
+
+GD = o['GD']
+NAG = o['NAG']
+Adadelta = o['Adadelta']
+RMSprop = o['RMSprop']
+Adam = o['Adam']
+
+#init_w = np.random.normal(size=(num_features,1))
+#GD = LRC.Classifier(w=init_w,optimizer='GD')
+#NAG = LRC.Classifier(w=init_w,optimizer='NAG')
+#Adadelta = LRC.Classifier(w=init_w,optimizer='Adadelta')
+#RMSprop = LRC.Classifier(w=init_w,optimizer='RMSprop')
+#Adam = LRC.Classifier(w=init_w,optimizer='Adam')
+#
+#GD.fit(X_train,Y_train)
+#NAG.fit(X_train,Y_train)
+#Adadelta.fit(X_train,Y_train)
+#RMSprop.fit(X_train,Y_train)
+#Adam.fit(X_train,Y_train)
+
+GD_loss_test = GD.getLossHistory(X_test,Y_test)
+NAG_loss_test = NAG.getLossHistory(X_test,Y_test)
+Adadelta_loss_test = Adadelta.getLossHistory(X_test,Y_test)
+RMSprop_loss_test = RMSprop.getLossHistory(X_test,Y_test)
+Adam_loss_test = Adam.getLossHistory(X_test,Y_test)
+
+_, ax = plt.subplots()
+ax.plot(range(len(GD_loss_test)),GD_loss_test,label=\
+        r'GD,$\lambda$=%.2f,$\eta$=%.2f'\
+        %(GD.get_params()['lamda'],GD.get_params()['eta']))
+ax.plot(range(len(NAG_loss_test)),NAG_loss_test,label=\
+        r'NAG,$\lambda$=%.2f,$\eta$=%.2f,$\gamma$=%.2f'\
+        %(NAG.get_params()['lamda'],NAG.get_params()['eta'],NAG.get_params()['gamma']))
+ax.plot(range(len(Adadelta_loss_test)),Adadelta_loss_test,label=\
+        r'Adadelta,$\lambda$=%.2f,$\gamma$=%.2f'\
+        %(Adadelta.get_params()['lamda'],Adadelta.get_params()['gamma']))
+ax.plot(range(len(RMSprop_loss_test)),RMSprop_loss_test,label=\
+        r'RMSprop,$\lambda$=%.2f,$\eta$=%.2f,$\gamma$=%.2f'\
+        %(RMSprop.get_params()['lamda'],RMSprop.get_params()['eta'],RMSprop.get_params()['gamma']))
+ax.plot(range(len(Adam_loss_test)),Adam_loss_test,label=\
+        r'Adam,$\lambda$=%.2f,$\eta$=%.2f,$\beta_1$=%.2f,$\beta_2$=%.3f'\
+        %(Adam.get_params()['lamda'],Adam.get_params()['eta'],Adam.get_params()['Adam_beta1'],Adam.get_params()['Adam_beta2']))
+
 plt.legend()
+plt.title('Different tuned estimators\' performance')
 ax.set(xlabel='Epoch', ylabel='Loss in testset with l2 norm')
 plt.show()
-    
-
-
-
-
-
-
-
-
