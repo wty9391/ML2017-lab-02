@@ -5,7 +5,6 @@ Created on Sat Dec  2 19:17:35 2017
 
 @author: wty
 """
-
 import numpy as np 
 import scipy  
 import matplotlib.pyplot as plt
@@ -16,12 +15,12 @@ from sklearn.model_selection import GridSearchCV
 
 import LogiticRegressionClassifier as LRC
 
-def plotFigure(GD,NAG,Adadelta,RMSprop,Adam,tuned='tuned'):
-    GD_loss_test = GD.getLossHistory(X_test,Y_test)
-    NAG_loss_test = NAG.getLossHistory(X_test,Y_test)
-    Adadelta_loss_test = Adadelta.getLossHistory(X_test,Y_test)
-    RMSprop_loss_test = RMSprop.getLossHistory(X_test,Y_test)
-    Adam_loss_test = Adam.getLossHistory(X_test,Y_test)
+def plotFigure(GD,NAG,Adadelta,RMSprop,Adam,X,Y,tuned='tuned'):
+    GD_loss_test = GD.getLossHistory(X,Y)
+    NAG_loss_test = NAG.getLossHistory(X,Y)
+    Adadelta_loss_test = Adadelta.getLossHistory(X,Y)
+    RMSprop_loss_test = RMSprop.getLossHistory(X,Y)
+    Adam_loss_test = Adam.getLossHistory(X,Y)
     
     _, ax = plt.subplots()
     ax.plot(range(len(GD_loss_test)),GD_loss_test,label=\
@@ -193,7 +192,7 @@ Adadelta = o['Adadelta']
 RMSprop = o['RMSprop']
 Adam = o['Adam']
 
-plotFigure(GD,NAG,Adadelta,RMSprop,Adam,'tuned')
+plotFigure(GD,NAG,Adadelta,RMSprop,Adam,X_test,Y_test,'tuned')
 
 init_w = np.random.normal(size=(num_features,1))
 GD = LRC.Classifier(w=init_w,optimizer='GD')
@@ -208,4 +207,4 @@ Adadelta.fit(X_train,Y_train)
 RMSprop.fit(X_train,Y_train)
 Adam.fit(X_train,Y_train)
 
-plotFigure(GD,NAG,Adadelta,RMSprop,Adam,'untuned')
+plotFigure(GD,NAG,Adadelta,RMSprop,Adam,X_test,Y_test,'untuned')
