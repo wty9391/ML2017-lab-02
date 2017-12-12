@@ -16,6 +16,36 @@ from sklearn.model_selection import GridSearchCV
 
 import LogiticRegressionClassifier as LRC
 
+def plotFigure(GD,NAG,Adadelta,RMSprop,Adam,tuned='tuned'):
+    GD_loss_test = GD.getLossHistory(X_test,Y_test)
+    NAG_loss_test = NAG.getLossHistory(X_test,Y_test)
+    Adadelta_loss_test = Adadelta.getLossHistory(X_test,Y_test)
+    RMSprop_loss_test = RMSprop.getLossHistory(X_test,Y_test)
+    Adam_loss_test = Adam.getLossHistory(X_test,Y_test)
+    
+    _, ax = plt.subplots()
+    ax.plot(range(len(GD_loss_test)),GD_loss_test,label=\
+            r'GD,$\lambda$=%.2f,$\eta$=%.2f'\
+            %(GD.get_params()['lamda'],GD.get_params()['eta']))
+    ax.plot(range(len(NAG_loss_test)),NAG_loss_test,label=\
+            r'NAG,$\lambda$=%.2f,$\eta$=%.2f,$\gamma$=%.2f'\
+            %(NAG.get_params()['lamda'],NAG.get_params()['eta'],NAG.get_params()['gamma']))
+    ax.plot(range(len(Adadelta_loss_test)),Adadelta_loss_test,label=\
+            r'Adadelta,$\lambda$=%.2f,$\gamma$=%.2f'\
+            %(Adadelta.get_params()['lamda'],Adadelta.get_params()['gamma']))
+    ax.plot(range(len(RMSprop_loss_test)),RMSprop_loss_test,label=\
+            r'RMSprop,$\lambda$=%.2f,$\eta$=%.2f,$\gamma$=%.2f'\
+            %(RMSprop.get_params()['lamda'],RMSprop.get_params()['eta'],RMSprop.get_params()['gamma']))
+    ax.plot(range(len(Adam_loss_test)),Adam_loss_test,label=\
+            r'Adam,$\lambda$=%.2f,$\eta$=%.2f,$\beta_1$=%.2f,$\beta_2$=%.3f'\
+            %(Adam.get_params()['lamda'],Adam.get_params()['eta'],Adam.get_params()['Adam_beta1'],Adam.get_params()['Adam_beta2']))
+    
+    plt.legend()
+    plt.title('Different %s estimators\' performance'%tuned)
+    ax.set(xlabel='Epoch', ylabel='Loss in testset with l2 norm')
+    plt.show()
+    plt.close('all')
+    
 result_path = './results/regression/grid_search'
 
 X_train, Y_train = load_svmlight_file("./resources/a9a")
@@ -48,35 +78,25 @@ optimizers = ['NAG','Adadelta','RMSprop','Adam','GD']
 o = {}
 
 param_grid = {
-            'NAG': {'lamda': [0.01, 0.1], 
-                       'eta': [0.01, 0.05],
-                       'gamma': [0.8, 0.9, 0.95],
-                       'threshold': [0.5,0.6]
-                       },
-                    
-            'Adadelta' : {'lamda': [0.01, 0.1],
-                          'gamma': [0.8, 0.9, 0.95],
-                       'threshold': [0.5,0.6]
-                          },
-            
-            'RMSprop' : {'lamda': [0.01, 0.1], 
-                       'eta': [0.01, 0.05],
-                       'gamma': [0.8, 0.9, 0.95],
-                       'threshold': [0.5,0.6]
-                       },
-            
-            'Adam' : {'lamda': [0.01, 0.1], 
-                       'eta': [0.01, 0.05],
-                       'Adam_beta1': [0.9, 0.95],
-                       'Adam_beta2' : [0.99, 0.999],
-                       'threshold': [0.5,0.6]
-                       },
-            
-            'GD' : {'lamda': [0.01, 0.1, 0.5], 
-                       'eta': [0.1, 0.2, 0.3, 0.4, 0.5],
-                       'threshold': [0.4,0.5,0.6]
-                       }
-        }
+        'NAG': {'lamda': [0.01, 0.1], 
+               'eta': [0.01, 0.05],
+               'gamma': [0.8, 0.9, 0.95],
+               'threshold': [0.5,0.6]},
+        'Adadelta' : {'lamda': [0.01, 0.1],
+                      'gamma': [0.8, 0.9, 0.95],
+                      'threshold': [0.5,0.6]},
+        'RMSprop' : {'lamda': [0.01, 0.1], 
+                   'eta': [0.01, 0.05],
+                   'gamma': [0.8, 0.9, 0.95],
+                   'threshold': [0.5,0.6]},
+        'Adam' : {'lamda': [0.01, 0.1], 
+                   'eta': [0.01, 0.05],
+                   'Adam_beta1': [0.9, 0.95],
+                   'Adam_beta2' : [0.99, 0.999],
+                   'threshold': [0.5,0.6]},
+        'GD' : {'lamda': [0.01, 0.1, 0.5], 
+               'eta': [0.1, 0.2, 0.3, 0.4, 0.5],
+               'threshold': [0.4,0.5,0.6]}}
 
 print ("===========================")
 print ("Start to execute exhaustive grid search")
@@ -173,43 +193,19 @@ Adadelta = o['Adadelta']
 RMSprop = o['RMSprop']
 Adam = o['Adam']
 
-#init_w = np.random.normal(size=(num_features,1))
-#GD = LRC.Classifier(w=init_w,optimizer='GD')
-#NAG = LRC.Classifier(w=init_w,optimizer='NAG')
-#Adadelta = LRC.Classifier(w=init_w,optimizer='Adadelta')
-#RMSprop = LRC.Classifier(w=init_w,optimizer='RMSprop')
-#Adam = LRC.Classifier(w=init_w,optimizer='Adam')
-#
-#GD.fit(X_train,Y_train)
-#NAG.fit(X_train,Y_train)
-#Adadelta.fit(X_train,Y_train)
-#RMSprop.fit(X_train,Y_train)
-#Adam.fit(X_train,Y_train)
+plotFigure(GD,NAG,Adadelta,RMSprop,Adam,'tuned')
 
-GD_loss_test = GD.getLossHistory(X_test,Y_test)
-NAG_loss_test = NAG.getLossHistory(X_test,Y_test)
-Adadelta_loss_test = Adadelta.getLossHistory(X_test,Y_test)
-RMSprop_loss_test = RMSprop.getLossHistory(X_test,Y_test)
-Adam_loss_test = Adam.getLossHistory(X_test,Y_test)
+init_w = np.random.normal(size=(num_features,1))
+GD = LRC.Classifier(w=init_w,optimizer='GD')
+NAG = LRC.Classifier(w=init_w,optimizer='NAG')
+Adadelta = LRC.Classifier(w=init_w,optimizer='Adadelta')
+RMSprop = LRC.Classifier(w=init_w,optimizer='RMSprop')
+Adam = LRC.Classifier(w=init_w,optimizer='Adam')
 
-_, ax = plt.subplots()
-ax.plot(range(len(GD_loss_test)),GD_loss_test,label=\
-        r'GD,$\lambda$=%.2f,$\eta$=%.2f'\
-        %(GD.get_params()['lamda'],GD.get_params()['eta']))
-ax.plot(range(len(NAG_loss_test)),NAG_loss_test,label=\
-        r'NAG,$\lambda$=%.2f,$\eta$=%.2f,$\gamma$=%.2f'\
-        %(NAG.get_params()['lamda'],NAG.get_params()['eta'],NAG.get_params()['gamma']))
-ax.plot(range(len(Adadelta_loss_test)),Adadelta_loss_test,label=\
-        r'Adadelta,$\lambda$=%.2f,$\gamma$=%.2f'\
-        %(Adadelta.get_params()['lamda'],Adadelta.get_params()['gamma']))
-ax.plot(range(len(RMSprop_loss_test)),RMSprop_loss_test,label=\
-        r'RMSprop,$\lambda$=%.2f,$\eta$=%.2f,$\gamma$=%.2f'\
-        %(RMSprop.get_params()['lamda'],RMSprop.get_params()['eta'],RMSprop.get_params()['gamma']))
-ax.plot(range(len(Adam_loss_test)),Adam_loss_test,label=\
-        r'Adam,$\lambda$=%.2f,$\eta$=%.2f,$\beta_1$=%.2f,$\beta_2$=%.3f'\
-        %(Adam.get_params()['lamda'],Adam.get_params()['eta'],Adam.get_params()['Adam_beta1'],Adam.get_params()['Adam_beta2']))
+GD.fit(X_train,Y_train)
+NAG.fit(X_train,Y_train)
+Adadelta.fit(X_train,Y_train)
+RMSprop.fit(X_train,Y_train)
+Adam.fit(X_train,Y_train)
 
-plt.legend()
-plt.title('Different tuned estimators\' performance')
-ax.set(xlabel='Epoch', ylabel='Loss in testset with l2 norm')
-plt.show()
+plotFigure(GD,NAG,Adadelta,RMSprop,Adam,'untuned')
