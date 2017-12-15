@@ -25,8 +25,8 @@ def Adadelta(w,gradient,last_E_g_2,last_E_delta_2,gamma):
             E_g_2,\
             gamma * last_E_delta_2 + (1-gamma) * (delta*delta)
 
-def RMSprop(w,gradient,last_E_g_2,eta,gamma):
-    E_g_2 = gamma * last_E_g_2 + (1-gamma) * (gradient*gradient)
+def RMSprop(w,gradient,last_E_g_2,eta):
+    E_g_2 = 0.9 * last_E_g_2 + 0.1 * (gradient*gradient)
     return w - (eta/np.sqrt(E_g_2+epsilon))*gradient,\
             E_g_2
             

@@ -135,7 +135,7 @@ class Classifier(BaseEstimator,ClassifierMixin):
                         op.RMSprop(self.w,
                                 self.g(X[start:end,:],Y[start:end,:]),
                                 RMSprop_last_E_g_2,
-                                eta,gamma)      
+                                eta)      
                     self.w_history.append(self.w)              
                 elif optimizer == 'Adam':
                     # Adaptive Moment Estimation

@@ -38,11 +38,8 @@ train_size,num_features  = np.shape(X_train)
 
 max_iterate = 50
 batch_size = 8000
-
 figure_num = 2
-
 init_w = np.random.normal(size=(num_features,1))
-
 optimizers = ['NAG','Adadelta','RMSprop','Adam','GD']
 o = {}
 
@@ -56,7 +53,6 @@ param_grid = {
                       'threshold': [0.5,0.6]},
         'RMSprop' : {'lamda': [0.01, 0.1], 
                    'eta': [0.01, 0.05],
-                   'gamma': [0.8, 0.9, 0.95],
                    'threshold': [0.5,0.6]},
         'Adam' : {'lamda': [0.01, 0.1], 
                    'eta': [0.01, 0.05],
@@ -70,7 +66,7 @@ param_grid = {
 print ("===========================")
 print ("Start to figure the loss curves of\
        untuned estimators in one figure")
-init_w = np.random.normal(size=(num_features,1))
+
 GD = LC.Classifier(w=init_w,optimizer='GD')
 NAG = LC.Classifier(w=init_w,optimizer='NAG')
 Adadelta = LC.Classifier(w=init_w,optimizer='Adadelta')
@@ -110,7 +106,7 @@ for i in range(len(optimizers)):
     
     print ("Printing the best %d models loss curves"%figure_num)
     for j in range(figure_num):
-        params = result.loc[i,'params']
+        params = result.loc[j,'params']
         print ("Figure of",params)
         cls = LC.Classifier(init_w,max_iterate=max_iterate,batch_size=batch_size,optimizer=optimizer_name,**params)
         cls.fit(X_train,Y_train)
@@ -135,10 +131,5 @@ print ("===========================")
 print ("Start to figure the loss curves of\
        tuned estimators in one figure")
 
-GD = o['GD']
-NAG = o['NAG']
-Adadelta = o['Adadelta']
-RMSprop = o['RMSprop']
-Adam = o['Adam']
 
-plt.plotFigureAllInOne(GD,NAG,Adadelta,RMSprop,Adam,X_test,Y_test,'tuned',path='./results/classification/SVM_tuned.pdf')
+plt.plotFigureAllInOne(o['GD'],o['NAG'],o['Adadelta'],o['RMSprop'],o['Adam'],X_test,Y_test,'tuned',path='./results/classification/SVM_tuned.pdf')

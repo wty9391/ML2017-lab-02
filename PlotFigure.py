@@ -26,8 +26,8 @@ def plotFigureAllInOne(GD,NAG,Adadelta,RMSprop,Adam,X,Y,tuned='tuned',every=20,s
             r'Adadelta,$\lambda$=%.2f,$\gamma$=%.2f'\
             %(Adadelta.get_params()['lamda'],Adadelta.get_params()['gamma']))
     ax.plot(range(len(RMSprop_loss_test)),RMSprop_loss_test,'v-',markersize=size,markevery=every,label=\
-            r'RMSprop,$\lambda$=%.2f,$\eta$=%.2f,$\gamma$=%.2f'\
-            %(RMSprop.get_params()['lamda'],RMSprop.get_params()['eta'],RMSprop.get_params()['gamma']))
+            r'RMSprop,$\lambda$=%.2f,$\eta$=%.2f'\
+            %(RMSprop.get_params()['lamda'],RMSprop.get_params()['eta']))
     ax.plot(range(len(Adam_loss_test)),Adam_loss_test,'d-',markersize=size,markevery=every,label=\
             r'Adam,$\lambda$=%.2f,$\eta$=%.2f,$\beta_1$=%.2f,$\beta_2$=%.3f'\
             %(Adam.get_params()['lamda'],Adam.get_params()['eta'],Adam.get_params()['Adam_beta1'],Adam.get_params()['Adam_beta2']))
